@@ -1,0 +1,8 @@
+fastapi==0.115.0
+uvicorn==0.30.6
+transformers==4.43.3
+diffusers==0.30.3
+torch==2.3.1+cu121 --extra-index-url https://download.pytorch.org/whl/cu121
+pillow==10.4.0
+python-dotenv==1.0.0
+requests==2.32.3
