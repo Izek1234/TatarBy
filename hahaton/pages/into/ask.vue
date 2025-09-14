@@ -93,8 +93,8 @@
       <!-- Генерированное изображение -->
       <div class="generated-image-container" v-if="showImageGenerator && generatedImage">
         <div class="generated-image-wrapper">
-          <img src="../../public/sun_in_sky.png" :alt="'Сгенерированная картинка'" class="generated-image" />
-          <div class="image-caption">Сгенерировано по запросу</div>
+          <img :src="generatedImage" :alt="'Сгенерированная картинка'" class="generated-image" />
+          <div class="image-caption">Сгенерировано по запросу: "{{ imagePrompt }}"</div>
         </div>
       </div>
 
@@ -152,7 +152,9 @@
         </button>
       </div>
 
-     
+      <div class="language-note">
+        * Татар телендә генә эшли
+      </div>
     </div>
   </div>
 </template>
@@ -173,7 +175,13 @@ export default {
       inputValue: '',
       isTyping: false,
       showImageGenerator: false,
-      generatedImage: null
+      generatedImage: null,
+      imagePrompt: '',
+      apiConfig: {
+        chatApiUrl: 'https://api.example.com/tatar-chat',
+        imageApiUrl: 'https://api.example.com/generate-image',
+        apiKey: 'your-api-key-here' 
+      }
     }
   },
   mounted() {
@@ -211,49 +219,136 @@ export default {
       }
 
       this.messages.push(userMessage)
+      const userInput = this.inputValue
       this.inputValue = ''
       this.adjustTextareaHeight()
       this.isTyping = true
 
-      // Имитация ответа AI
-      setTimeout(() => {
-         const aiResponses = [
-          "Су Анасы (Су Иясе)\n\nБу халык әкияте бер ялгыз иптәшлектә яшәгән ана белән угыл турында. Углы, яшь егет, бер көнне елгада балык тотарга бара. Ул бик зур һәм матур балык тота, ләкин балык сөйли башлый һәм үзенең Су Анасының кызы икәнен әйтеп, аны куйгыласын ялый. Карышкыр йөрәкле егет аны ишетми һәм аны үз өенә алып кита.\n\nӨйгә кайткач, анасы балыкны пешерергә әзерли. Ләкин балык пешеренү вакытында яңадан сөйли башлый һәм аны ашамаска яланый. Анасы куркып, балыкны пешерүдән баш тарта, әмма егет тагын да катырак пешерергә куша.\n\nНиһаять, балык пешеп беткәч, аны ашап бетерәләр. Шул төндә үк, куркыныч Су Анасы аларның өенә килеп чыга. Ул бик ачулы һәм үзенең кызы өчен үч алырга ант итә. Ул ана-угылны суга тартып алырга яный, әмма алар эченә керә алмый.\n\nАхырында, Су Анасы ачуыннан үзе белән килгән суны өйгә сибеп, бастырып куя. Икәве дә судан үлеп бетә. Шул көннән бирле, әлеге өйдә беркем дә яши алмый, ул яшәүдән төшеп, елан-чарлар белән тулып китә.\n\nТөп тема: Ачкалык, байлык өчен башкаларның теләгенә каршы бару, табигатькә хөрмәт итү мәҗбүрилеге һәм ґәзаб китерә торган явыз эшләрнең ахыргы нәтиҗәсе."
-        ]
-
-        const randomResponse = aiResponses[Math.floor(Math.random() * aiResponses.length)]
-
+      try {
+        // Вызов API для получения ответа
+        const response = await this.callChatAPI(userInput)
+        
         const aiMessage = {
           id: Date.now() + 1,
           type: 'ai',
-          content: randomResponse,
+          content: response.message,
           timestamp: this.getCurrentTime()
         }
 
         this.messages.push(aiMessage)
+      } catch (error) {
+        console.error('Ошибка при получении ответа от API:', error)
+        
+        const fallbackResponses = [
+          "Гафу итегез, хәзерге вакытта серверга тоташа алмыйм. Ярдәм итә алмыйм.",
+          "Техник проблемалар аркасында сезнең сорауга җавап бирә алмыйм. Зинһар, соңрак кабат тапшырыгыз.",
+          "Хәзерге вакытта сервер белән тоташу проблемасы бар. Ярдәм сорагызгыз яздым, соңрак кабатлап керегез."
+        ]
+        
+        const errorMessage = {
+          id: Date.now() + 1,
+          type: 'ai',
+          content: fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)],
+          timestamp: this.getCurrentTime()
+        }
+        
+        this.messages.push(errorMessage)
+      } finally {
         this.isTyping = false
-      }, 1500)
+      }
     },
 
-    generateImage() {
+    async callChatAPI(message) {
+      // Реализация вызова API чата
+      try {
+        const response = await fetch(this.apiConfig.chatApiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.apiConfig.apiKey}`
+          },
+          body: JSON.stringify({
+            message: message,
+            language: 'tatar'
+          })
+        })
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+
+        const data = await response.json()
+        return data
+      } catch (error) {
+        console.error('Ошибка при вызове API чата:', error)
+        throw error
+      }
+    },
+
+    async generateImage() {
       if (!this.inputValue.trim()) return
 
-      const prompt = this.inputValue || "татар орнаменты белән абстракт сәнгать"
-      const imageUrl = `https://placehold.co/600x400/0a3d2b/ffffff?text=Генерированная+картинка:+${encodeURIComponent(prompt)}`
-      
-      this.generatedImage = imageUrl
-      this.showImageGenerator = true
+      const prompt = this.inputValue
+      this.imagePrompt = prompt
+      this.isTyping = true
 
-      const aiMessage = {
-        id: Date.now() + 1,
-        type: 'ai',
-        content: `Мин сезнең соравыгыз буенча рәсем төзедем: "${prompt}"`,
-        timestamp: this.getCurrentTime()
+      try {
+        // Вызов API для генерации изображения
+        const imageUrl = await this.callImageGenerationAPI(prompt)
+        
+        this.generatedImage = imageUrl
+        this.showImageGenerator = true
+
+        const aiMessage = {
+          id: Date.now() + 1,
+          type: 'ai',
+          content: `Мин сезнең соравыгыз буенча рәсем төзедем: "${prompt}"`,
+          timestamp: this.getCurrentTime()
+        }
+
+        this.messages.push(aiMessage)
+        this.inputValue = ''
+        this.adjustTextareaHeight()
+      } catch (error) {
+        console.error('Ошибка при генерации изображения:', error)
+        
+        const errorMessage = {
+          id: Date.now() + 1,
+          type: 'ai',
+          content: "Гафу итегез, рәсем генерацияләү сервисы хәзер эшләми. Зинһар, соңрак кабатлап карагыз.",
+          timestamp: this.getCurrentTime()
+        }
+        
+        this.messages.push(errorMessage)
+      } finally {
+        this.isTyping = false
       }
+    },
 
-      this.messages.push(aiMessage)
-      this.inputValue = '' // Очищаем поле после генерации
-      this.adjustTextareaHeight()
+    async callImageGenerationAPI(prompt) {
+      try {
+        const response = await fetch(this.apiConfig.imageApiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.apiConfig.apiKey}`
+          },
+          body: JSON.stringify({
+            prompt: prompt,
+            style: 'tatar' // Можно добавить специфические параметры для татарского стиля
+          })
+        })
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+
+        const data = await response.json()
+        return data.imageUrl
+      } catch (error) {
+        console.error('Ошибка при вызове API генерации изображений:', error)
+        throw error
+      }
     },
 
     getCurrentTime() {
@@ -310,7 +405,6 @@ export default {
   overflow: hidden;
 }
 
-/* Татарский орнамент */
 .tatar-pattern {
   position: absolute;
   left: 0;
@@ -332,7 +426,6 @@ export default {
   bottom: 140px;
 }
 
-/* Заголовок */
 .chat-header {
   background: rgba(10, 26, 21, 0.8);
   backdrop-filter: blur(20px);
@@ -456,7 +549,6 @@ export default {
   height: 20px;
 }
 
-/* Контейнер сообщений */
 .messages-container {
   flex: 1;
   overflow-y: auto;
@@ -470,7 +562,6 @@ export default {
   z-index: 2;
 }
 
-/* Приветственное сообщение */
 .welcome-message {
   display: flex;
   justify-content: center;

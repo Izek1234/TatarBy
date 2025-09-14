@@ -130,16 +130,22 @@ export default {
       this.hideAlert()
 
       try {
-        const url = this.isLogin ? '/api/auth/login' : '/api/auth/register'
-        const response = await this.$fetchApi(url, {
+        const url = this.isLogin ? 'http://62.60.235.50/api/auth/login' : "http://62.60.235.50/api/auth/register"
+        
+        const response = await fetch(url, {
           method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
           body: JSON.stringify(this.prepareFormData())
         })
 
-        if (response.success) {
-          await this.handleSuccessResponse(response)
+        const data = await response.json()
+
+        if (response.ok) {
+          await this.handleSuccessResponse(data)
         } else {
-          this.handleApiError(response)
+          this.handleApiError(data)
         }
       } catch (error) {
         this.handleNetworkError(error)
@@ -163,18 +169,23 @@ export default {
     },
 
     async handleSuccessResponse(response) {
-      // Сохраняем токен и данные пользователя
-      this.$store.commit('auth/setUser', response.data.user)
-      this.$store.commit('auth/setToken', response.data.token)
+      const { token, user } = response.data || response
       
-      // Сохраняем токен в localStorage
+      if (this.$store) {
+        this.$store.commit('auth/setUser', user)
+        this.$store.commit('auth/setToken', token)
+      }
+      
       if (process.client) {
-        localStorage.setItem('auth_token', response.data.token)
-        localStorage.setItem('user_data', JSON.stringify(response.data.user))
+        localStorage.setItem('auth_token', token)
+        localStorage.setItem('user_data', JSON.stringify(user))
       }
       
       this.showAlert('Успешная авторизация!', 'success')
-      await this.$router.push('/dashboard')
+      
+      setTimeout(() => {
+        this.$router.push('/dashboard')
+      }, 1000)
     },
 
     handleApiError(response) {
@@ -182,6 +193,8 @@ export default {
         this.errors = response.errors
       } else if (response.message) {
         this.showAlert(response.message, 'error')
+      } else {
+        this.showAlert('Произошла ошибка при выполнении запроса', 'error')
       }
     },
 
@@ -194,7 +207,6 @@ export default {
       this.errors = {}
       let isValid = true
 
-      // Валидация email
       if (!this.form.email) {
         this.errors.email = 'Email обязателен'
         isValid = false
@@ -203,7 +215,6 @@ export default {
         isValid = false
       }
 
-      // Валидация имени (только для регистрации)
       if (!this.isLogin && !this.form.name) {
         this.errors.name = 'Имя обязательно'
         isValid = false
@@ -212,7 +223,6 @@ export default {
         isValid = false
       }
 
-      // Валидация пароля
       if (!this.form.password) {
         this.errors.password = 'Пароль обязателен'
         isValid = false
@@ -221,7 +231,6 @@ export default {
         isValid = false
       }
 
-      // Подтверждение пароля (только для регистрации)
       if (!this.isLogin && this.form.password !== this.form.confirmPassword) {
         this.errors.confirmPassword = 'Пароли не совпадают'
         isValid = false
