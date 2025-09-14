@@ -1,0 +1,21 @@
+
+include:
+  - ./user-back/export-docker-compose.yml
+
+
+services:
+  frontend:
+    build: ./hahaton
+    container_name: frontend
+    ports:
+      - "3000:3000"
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3000
+    networks:
+      - app-network
+    restart: unless-stopped
+
+networks:
+  app-network:
+    driver: bridge

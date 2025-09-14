@@ -1,0 +1,98 @@
+version: "3.8"
+
+services:
+    userback_postgres:
+        image: postgres:15-alpine
+        container_name: userback_postgres
+        ports:
+            - "6500:5432"
+        volumes:
+            - userback_postgres_data:/var/lib/postgresql/data
+        environment:
+            POSTGRES_USER: admin
+            POSTGRES_PASSWORD: password123
+            POSTGRES_DB: rust_jwt_rs256  # Эта строка создаст базу автоматически!
+        networks:
+            - userback_app-network
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U admin -d rust_jwt_rs256"]  # Обновите healthcheck
+            interval: 30s
+            timeout: 10s
+            retries: 5
+
+    userback_pgadmin:
+        image: dpage/pgadmin4:7
+        container_name: userback_pgadmin
+        env_file:
+            - ./.env
+        ports:
+            - "5050:80"
+        networks:
+            - userback_app-network
+        depends_on:
+            userback_postgres:
+                condition: service_healthy
+
+    userback_redis:
+        image: redis:7-alpine
+        container_name: userback_redis
+        ports:
+            - "6354:6379"
+        volumes:
+            - userback_redis_data:/data
+        networks:
+            - userback_app-network
+        command: redis-server --appendonly yes
+
+    userback_app:
+        build: .
+        container_name: userback_user-backend
+        ports:
+            - "8004:8000"
+        env_file:
+            - ./.env
+        environment:
+            - DATABASE_URL=postgresql://admin:password123@userback_postgres:5432/rust_jwt_rs256?schema=public # Изменил хост
+            - REDIS_URL=redis://redis:6379/ # Изменил хост
+        networks:
+            - app-network
+            - userback_app-network
+        depends_on:
+            - userback_postgres
+            - userback_redis
+        restart: unless-stopped
+
+    sqlx-prepare:
+        build: .
+        container_name: userback_sqlx_prepare
+        env_file:
+          - ./.env
+        environment:
+          - DATABASE_URL=postgresql://admin:password123@userback_postgres:5432/rust_jwt_rs256?schema=public
+        networks:
+          - userback_app-network
+        depends_on:
+          userback_postgres:
+            condition: service_healthy
+        volumes:
+          - .:/usr/src/app
+        working_dir: /usr/src/app
+        command: >
+          sh -c "
+            cargo install sqlx-cli --features postgres --locked &&
+            echo '✅ DB ready' &&
+            sqlx migrate run &&
+            echo '✅ Migrations applied' &&
+            cargo sqlx prepare &&
+            echo '✅ sqlx-data.json generated!' &&
+            echo '📁 File saved to host via volume mount.'
+          "
+        restart: "no"
+
+networks:
+    userback_app-network:
+        driver: bridge
+
+volumes:
+    userback_redis_data:
+    userback_postgres_data:
